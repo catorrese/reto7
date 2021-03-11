@@ -1,7 +1,9 @@
+const { response } = require("express");
 var express = require("express");
 var router = express.Router();
-var fs = require("fs");
+
 var Joi = require("joi");
+const Mensaje = require("../models/mensajes");
 
 const schema = Joi.object({
   mensaje: Joi.string().min(5).required(),
@@ -20,141 +22,69 @@ const schema2 = Joi.object({
 
 /* GET messages listing. */
 router.get("/", function (req, res, next) {
-  data = fs.readFileSync("./mensajes.json");
-  datos = Array.from(JSON.parse(data));
-  const mensajes = datos
-    .map(
-      (item) =>
-        `<p>${item.autor + ": " + item.mensaje + " --- ts: " + item.ts}</p>`
-    )
-    .join(" ");
-  res.send(mensajes);
-});
-
-router.get("/:ts", function (req, res, next) {
-  data = fs.readFileSync("./mensajes.json");
-  datos = Array.from(JSON.parse(data));
-  let ans = "No se encuentra dicho ts.";
-  let seEncuentra = false;
-  datos.forEach((element) => {
-    if (element.ts == req.params.ts) {
-      ans = element.autor + ": " + element.mensaje + " --- ts: " + element.ts;
-      seEncuentra = true;
-    }
+  Mensaje.findAll().then((result) => {
+    res.send(result);
   });
-  if (!seEncuentra) {
-    res.status(404);
-  }
-  res.send(ans);
 });
 
-router.post("/", function (req, res) {
-  data = fs.readFileSync("./mensajes.json");
-  datos = Array.from(JSON.parse(data));
-  obj = req.body;
-  let ans = "Post enviado: " + JSON.stringify(obj);
-  if (schema.validate(obj).error) {
-    ans = "Error en uno de los campos enviados. Joi";
-    res.status(404);
-  } else {
-    let seEncuentra = false;
-    datos.forEach((element) => {
-      if (element.ts == obj.ts) {
-        ans = "El ts ya existe.";
-        seEncuentra = true;
-        res.status(404);
-      }
-    });
-    if (!seEncuentra) {
-      datos.push(obj);
-      fs.writeFile(
-        "./mensajes.json",
-        JSON.stringify(datos),
-        { flag: "w" },
-        function (err) {
-          if (err) return console.log(err);
-        }
-      );
-    }
-  }
-
-  res.send(ans);
-});
-
-router.put("/:ts", function (req, res) {
-  data = fs.readFileSync("./mensajes.json");
-  datos = Array.from(JSON.parse(data));
-  obj = req.body;
-  let ans = "No se encuentra dicho ts.";
-  if (schema2.validate(obj).error) {
-    ans = "Error en uno de los campos enviados. Joi";
-    res.status(404);
-  } else {
-    let seEncuentra = false;
-    datos.forEach((element) => {
-      if (element.ts == req.params.ts) {
-        element.mensaje = obj.mensaje;
-        element.autor = obj.autor;
-        ans =
-          "Put enviado: " +
-          element.autor +
-          ": " +
-          element.mensaje +
-          " --- ts: " +
-          element.ts;
-        seEncuentra = true;
-      }
-    });
-    fs.writeFile(
-      "./mensajes.json",
-      JSON.stringify(datos),
-      { flag: "w" },
-      function (err) {
-        if (err) return console.log(err);
-      }
-    );
-    if (!seEncuentra) {
-      res.status(404);
-    }
-  }
-
-  res.send(ans);
-});
-
-router.delete("/:ts", function (req, res) {
-  data = fs.readFileSync("./mensajes.json");
-  datos = Array.from(JSON.parse(data));
-  let ans = "No se encuentra dicho ts.";
-  let eliminado = null;
-  let seEncuentra = false;
-  datos.forEach((element) => {
-    if (element.ts == req.params.ts) {
-      ans =
-        "Delete enviado: " +
-        element.autor +
-        ": " +
-        element.mensaje +
-        " --- ts: " +
-        element.ts;
-      seEncuentra = true;
-      eliminado = element;
-    }
+router.get("/:id", (req, res) => {
+  Mensaje.findByPk(req.params.id).then((response) => {
+    if (response === null)
+      return res.status(404).send("El mensaje con el id dado no se encuentra.");
+    res.send(response);
   });
-  if (!seEncuentra) {
-    res.status(404);
-  } else {
-    datos.splice(datos.indexOf(eliminado), 1);
+});
+
+router.post("/", function (req, res, next) {
+  const { error } = schema2.validate(req.body);
+
+  if (error) {
+    return res.status(400).send(error);
   }
 
-  fs.writeFile(
-    "./mensajes.json",
-    JSON.stringify(datos),
-    { flag: "w" },
-    function (err) {
-      if (err) return console.log(err);
+  Mensaje.create({ mensaje: req.body.mensaje, autor: req.body.autor }).then(
+    (result) => {
+      res.send(result);
     }
   );
-  res.send(ans);
+});
+
+router.post("/", (req, res) => {
+  const { error } = schema2.validate(req.body);
+
+  if (error) {
+    return res.status(400).send(error);
+  }
+
+  Mensaje.create({ mensaje: req.body.mensaje, autor: req.body.autor }).then(
+    (result) => {
+      res.send(result);
+    }
+  );
+});
+
+router.put("/:id", (req, res) => {
+  const { error } = schema2.validate(req.body);
+
+  if (error) {
+    return res.status(400).send(error);
+  }
+
+  Mensaje.update(req.body, { where: { id: req.params.id } }).then((response) => {
+    if (response[0] !== 0) res.send({ message: "Mensaje actualizado" });
+    else res.status(404).send({ message: "El mensaje no fue encontrado" });
+  });
+});
+
+router.delete("/:id", (req, res) => {
+  Mensaje.destroy({
+    where: {
+      id: req.params.id,
+    },
+  }).then((response) => {
+    if (response === 1) res.status(204).send();
+    else res.status(404).send({ message: "El mensaje no fue encontrado" });
+  });
 });
 
 module.exports = router;
