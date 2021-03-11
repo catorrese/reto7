@@ -4,8 +4,9 @@ ws.onmessage = (msg) => {
   renderMessages(JSON.parse(msg.data));
 };
 
+
 const renderMessages = (data) => {
-  const html = data.map((item) => `<p>${item}</p>`).join(" ");
+  const html = data.map((item) => `<p>${item.autor + ": " + item.mensaje}</p>`).join(" ");
   document.getElementById("messages").innerHTML = html;
 };
 
